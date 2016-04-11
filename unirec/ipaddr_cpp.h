@@ -11,8 +11,10 @@ class IPaddr_cpp {
 public:
    const ip_addr_t *data;
    inline IPaddr_cpp();
-   inline IPaddr_cpp(const ip_addr_t *ptr) : data(ptr) {new_object = false;};
+   inline IPaddr_cpp(bool is_new);
    inline ~IPaddr_cpp();
+   inline IPaddr_cpp(const ip_addr_t *ptr) : data(ptr) {new_object = false;};
+   //inline ~IPaddr_cpp();
    bool operator<(const IPaddr_cpp &key2) const;
    bool operator<=(const IPaddr_cpp &key2) const;
    bool operator>(const IPaddr_cpp &key2) const;
@@ -20,6 +22,8 @@ public:
    bool operator==(const IPaddr_cpp &key2) const;
    bool operator!=(const IPaddr_cpp &key2) const;
    std::string toString() const;
+   bool fromString(std::string str);
+   void set_IP(ip_addr_t *ip);
 };
 
 inline IPaddr_cpp::IPaddr_cpp()
@@ -27,6 +31,14 @@ inline IPaddr_cpp::IPaddr_cpp()
    data = new ip_addr_t;
    new_object = true;
 }
+
+// If the object is used only for reading IP values from input
+inline IPaddr_cpp::IPaddr_cpp(bool is_new)
+{
+   new_object = is_new;
+   data = new_object ? new ip_addr_t : NULL;
+}
+
 
 inline IPaddr_cpp::~IPaddr_cpp()
 {
@@ -86,6 +98,29 @@ inline std::string IPaddr_cpp::toString() const
 inline std::ostream& operator<<(std::ostream &os, const IPaddr_cpp &ip)
 {
   return os << ip.toString();
+}
+
+// Creates new IP object from string
+bool IPaddr_cpp::fromString(std::string str)
+{
+   ip_addr_t *addr_ptr = new ip_addr_t;
+   if (!ip_from_str(str.c_str(), addr_ptr)) {
+      return false; // Error - string is not a valid IP address
+   } else {
+      if (new_object) {
+         delete data;
+      } else {
+         new_object = true;
+      }
+      data = addr_ptr;
+      return true;
+   }
+}
+
+void IPaddr_cpp::set_IP(ip_addr_t *ip)
+{
+   data = ip;
+   return;
 }
 
 #endif
