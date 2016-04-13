@@ -48,6 +48,7 @@
 #define _IPADDR_CPP_H
 
 #include "ipaddr.h"
+#include <math.h>
 #include <string>
 #include <iostream>
 #include <arpa/inet.h>     // INET6_ADDRSTRLEN value
@@ -122,8 +123,8 @@ public:
     * \brief Checks IP version/
     * \return True if stored data is IP of said version.
     */
-   bool ip_isv4();
-   bool ip_isv6();
+   bool is_ipv4();
+   bool is_ipv6();
 
    /**
     * \brief Returns IP version as an integer.
@@ -136,6 +137,28 @@ public:
     * \return Bytes representing IP (4 for IPv4, 16 for IPv6).
     */
    std::vector<uint8_t> get_bytes();
+
+   /**
+    * \brief Converts bytes to IP.
+    * \param [in] bytes Values to be used.
+    * \param [in] is_be Big endian if true.
+    */
+   void set_bytes(std::vector<uint8_t> bytes, bool is_be);
+
+   /**
+    * \brief Get particular bit from IP.
+    * \param [in] index Both address versions indexed from 0 (IPv4 offset is 0).
+    * \param ]in] is_le If Address is in little endian, equals true.
+    * \return Value of chosen bit. If index is out of range, returns "0".
+    */
+   bool get_bit(int index, bool is_le);
+
+   /**
+    * \brief Returns IP of chosen version as a bit vector.
+    * \return Bit representation of IP.
+    */
+   std::bitset<32> get_bits_ipv4();
+   std::bitset<128> get_bits_ipv6();
 };
 
 inline IPaddr_cpp::IPaddr_cpp()
@@ -242,12 +265,12 @@ void IPaddr_cpp::set_IP(const ip_addr_t *ip)
 }
 
 // Determine IP version
-bool IPaddr_cpp::ip_isv4()
+bool IPaddr_cpp::is_ipv4()
 {
    return (data != NULL) && (ip_is4(data) == 1);
 }
 
-bool IPaddr_cpp::ip_isv6()
+bool IPaddr_cpp::is_ipv6()
 {
    return (data != NULL) && (ip_is6(data) == 1);
 }
@@ -257,7 +280,7 @@ int IPaddr_cpp::get_version()
    if (data == NULL) {
       return 0;
    }
-   return this->ip_isv4() ? 4 : 6;
+   return this->is_ipv4() ? 4 : 6;
 }
 
 // Get IP as bytes
@@ -271,7 +294,7 @@ std::vector<uint8_t> IPaddr_cpp::get_bytes()
 
    // Which bytes will be returned
    int min, max;
-   if (this->ip_isv4()) {
+   if (this->is_ipv4()) {
       // IPv4 - 9th-12th byte (included)
       min = 8;
       max = 11;
@@ -285,6 +308,91 @@ std::vector<uint8_t> IPaddr_cpp::get_bytes()
       ip.push_back(data->bytes[i]);
    }
    
+   return ip;
+}
+
+// Set IP from bytes
+void IPaddr_cpp::set_bytes(std::vector<uint8_t> bytes, bool is_be)
+{
+   if (new_object) {
+      delete data;
+      new_object = false;
+   }
+
+   ip_addr_t *ip = new ip_addr_t;
+
+   if (bytes.size() == 4) { // IPv4
+      ip->ui64[0] = 0;
+      for (int i = 0; i < 4; i++) {
+         ip->bytes[i+8] = bytes[(is_be ? i : 3-i)];
+      }
+      ip->ui32[3] = 0xffffffff;
+   } else { // IPv6
+      for (int i = 0; i < 16; i++) {
+         ip->bytes[i] = bytes[(is_be ? i : 15-i)];
+      }
+   }
+   data = ip;
+   return;
+}
+
+// Get bit from IP in little endian (indexed from 0 even for IPv4)
+bool IPaddr_cpp::get_bit(int index, bool is_le)
+{
+   
+   if ((data == NULL) || (this->is_ipv4() && (index > 31)) ||
+       (this->is_ipv6() && (index > 127))){
+      return false;
+   }
+
+   // IPv4 is between 64th and 95th bit
+   if (this->is_ipv4()) {
+      index += 64;
+   }
+
+   int b = floor(index / 8);
+
+   return (data->bytes[b] >> (is_le ? 7 - (index % 8) : (index % 8))) & 1;
+}
+
+// Return IPv6 as bit vector
+std::bitset<128> IPaddr_cpp::get_bits_ipv6()
+{
+
+   std::bitset<128> ip;
+
+   if (data == NULL) {
+      return ip;
+   }
+
+   // Divide into bytes
+   for (int i = 0; i < 16; i++) {
+      // Go bit by bit
+      for (int b = 0; b < 8; b++) {
+         ip[i*8+b] = this->get_bit(i*8+b,true);
+      }
+   }
+   return ip;
+}
+
+// Return IPv4 as bit vector
+std::bitset<32> IPaddr_cpp::get_bits_ipv4()
+{
+
+   std::bitset<32> ip;
+
+   if (data == NULL) {
+      return ip;
+   }
+
+   // Divide into bytes that include IPv4
+   for (int i = 8; i < 12; i++) {
+      // Go bit by bit
+      for (int b = 0; b < 8; b++) {
+         ip[(i-8)*8+b] = this->get_bit(i*8+b,true);
+      }
+   }
+
    return ip;
 }
 
