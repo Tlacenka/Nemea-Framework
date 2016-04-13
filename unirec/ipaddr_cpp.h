@@ -132,10 +132,10 @@ public:
    int get_version();
 
    /**
-    * \brief Returns IP as vector of bytes (char).
+    * \brief Returns IP as vector of bytes (uint8_t).
     * \return Bytes representing IP (4 for IPv4, 16 for IPv6).
     */
-   std::vector<char> get_bytes();
+   std::vector<uint8_t> get_bytes();
 };
 
 inline IPaddr_cpp::IPaddr_cpp()
@@ -261,9 +261,9 @@ int IPaddr_cpp::get_version()
 }
 
 // Get IP as bytes
-std::vector<char> IPaddr_cpp::get_bytes()
+std::vector<uint8_t> IPaddr_cpp::get_bytes()
 {
-   std::vector<char> ip;
+   std::vector<uint8_t> ip;
 
    if (data == NULL) {
       return ip;
@@ -282,7 +282,7 @@ std::vector<char> IPaddr_cpp::get_bytes()
 
    // Fill vector
    for (int i = min; i <= max; i++) {
-      ip.push_back((char)(data->bytes[i]));
+      ip.push_back(data->bytes[i]);
    }
    
    return ip;
