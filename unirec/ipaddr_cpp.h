@@ -79,7 +79,7 @@ public:
    /**
     * \brief Destructor. Deletes address if new_object is set.
     */
-   inline ~IPaddr_cpp();
+   //inline ~IPaddr_cpp();
 
    /**
     * \brief Implements methods for comparison operators
@@ -108,6 +108,15 @@ public:
    bool fromString(std::string str);
 
    /**
+    * \brief Returns/sets IPv[46] as integer/vector of 32b integers.
+    * \return IP integer representation.
+    */
+   uint32_t get_ipv4_int();
+   void set_ipv4_int(uint32_t ip);
+   std::vector<uint32_t> get_ipv6_int();
+   bool set_ipv6_int(std::vector<uint32_t> ip);
+
+   /**
     * \brief Returns currently stored IP.
     * \return IP address.
     */
@@ -117,7 +126,7 @@ public:
     * \brief Sets IP address.
     * \param ip Value to be assigned to data.
     */
-   void set_IP(const ip_addr_t *ip);
+   void set_IP(const ip_addr_t *ip, bool create_new);
 
    /**
     * \brief Checks IP version/
@@ -154,11 +163,12 @@ public:
    bool get_bit(int index, bool is_le);
 
    /**
-    * \brief Returns IP of chosen version as a bit vector.
+    * \brief Converts IP of chosen version to/from a bit vector.
     * \return Bit representation of IP.
     */
    std::bitset<32> get_bits_ipv4();
    std::bitset<128> get_bits_ipv6();
+   void set_bits_ipv6(std::bitset<128> ipv6);
 };
 
 inline IPaddr_cpp::IPaddr_cpp()
@@ -174,11 +184,14 @@ inline IPaddr_cpp::IPaddr_cpp(bool is_new)
    data = new_object ? new ip_addr_t : NULL;
 }
 
-
+/*
 inline IPaddr_cpp::~IPaddr_cpp()
 {
-    if (new_object) delete data;
+    if ((new_object) && (data != NULL)) {
+      delete data;
+   }
 }
+*/
 
 // swap_bytes_
 inline uint64_t swap_bytes(const uint64_t x)
@@ -225,6 +238,10 @@ inline bool IPaddr_cpp::operator!=(const IPaddr_cpp &key2) const {
 //String conversions
 inline std::string IPaddr_cpp::toString() const
 {
+   if (this->data == NULL) {
+      return "";
+   }
+
    char buf[INET6_ADDRSTRLEN];
    ip_to_str(this->data, buf);
    return std::string(buf);
@@ -235,21 +252,85 @@ inline std::ostream& operator<<(std::ostream &os, const IPaddr_cpp &ip)
   return os << ip.toString();
 }
 
-// Creates new IP object from string
 bool IPaddr_cpp::fromString(std::string str)
 {
-   ip_addr_t *addr_ptr = new ip_addr_t;
-   if (!ip_from_str(str.c_str(), addr_ptr)) {
-      return false; // Error - string is not a valid IP address
+   if ((new_object) && (data != NULL)) {
+      delete data;
    } else {
-      if (new_object) {
-         delete data;
-      } else {
-         new_object = true;
-      }
-      data = addr_ptr;
-      return true;
+      new_object = true;
    }
+
+   ip_addr_t *addr_ptr = new ip_addr_t;
+
+   if (!ip_from_str(str.c_str(), addr_ptr)) {
+      return false;
+   }
+
+   data = addr_ptr;
+
+   return true;
+}
+
+// From/to int conversions
+uint32_t IPaddr_cpp::get_ipv4_int()
+{
+   return (data == NULL) ? 0 : ip_get_v4_as_int((ip_addr_t*)data);
+}
+
+void IPaddr_cpp::set_ipv4_int(uint32_t ip) {
+
+   if ((new_object) && (data != NULL)) {
+      delete data;
+   } else {
+      new_object = true;
+   }
+
+   ip_addr_t *new_ip = new ip_addr_t;
+
+   new_ip->ui64[0] = 0;
+   new_ip->ui32[2] = htonl(ip);
+   new_ip->ui32[3] = 0xffffffff;
+   data = new_ip;
+   return;
+
+}
+
+std::vector<uint32_t> IPaddr_cpp::get_ipv6_int()
+{
+   std::vector<uint32_t> ipv6;
+   ipv6.resize(4);
+
+   if (data == NULL) {
+      return ipv6;
+   }
+
+   ipv6[0] = data->ui32[0];
+   ipv6[1] = data->ui32[1];
+   ipv6[2] = data->ui32[2];
+   ipv6[3] = data->ui32[3];
+
+   return ipv6;
+}
+
+bool IPaddr_cpp::set_ipv6_int(std::vector<uint32_t> ip) {
+   if ((new_object) && (data != NULL)) {
+      delete data;
+   } else {
+      new_object = true;
+   }
+
+   if (ip.size() != 4) {
+      return false;
+   }
+
+   ip_addr_t *new_ip = new ip_addr_t;
+   new_ip->ui32[0] = ip[0];
+   new_ip->ui32[1] = ip[1];
+   new_ip->ui32[2] = ip[2];
+   new_ip->ui32[3] = ip[3];
+   data = new_ip;
+
+   return true;
 }
 
 // Get/set IP value
@@ -258,9 +339,23 @@ const ip_addr_t *IPaddr_cpp::get_IP()
    return data;
 }
 
-void IPaddr_cpp::set_IP(const ip_addr_t *ip)
+void IPaddr_cpp::set_IP(const ip_addr_t *ip, bool create_new)
 {
-   data = ip;
+
+   if ((create_new) || (data == NULL)) {
+      if ((new_object) && (data != NULL)) {
+         delete data;
+      }
+      new_object = false;
+
+      char buf[INET6_ADDRSTRLEN];
+      ip_to_str(ip, buf);
+      std::string tmp(buf);
+      this->fromString(tmp);
+   } else {
+      new_object = false;
+      data = ip;
+   }
    return;
 }
 
@@ -314,9 +409,10 @@ std::vector<uint8_t> IPaddr_cpp::get_bytes()
 // Set IP from bytes
 void IPaddr_cpp::set_bytes(std::vector<uint8_t> bytes, bool is_be)
 {
-   if (new_object) {
+   if ((new_object) && (data != NULL)) {
       delete data;
-      new_object = false;
+   } else {
+      new_object = true;
    }
 
    ip_addr_t *ip = new ip_addr_t;
@@ -352,7 +448,7 @@ bool IPaddr_cpp::get_bit(int index, bool is_le)
 
    int b = floor(index / 8);
 
-   return (data->bytes[b] >> (is_le ? 7 - (index % 8) : (index % 8))) & 1;
+   return (data->bytes[b] >> (index % 8)) & 1;
 }
 
 // Return IPv6 as bit vector
@@ -366,13 +462,38 @@ std::bitset<128> IPaddr_cpp::get_bits_ipv6()
    }
 
    // Divide into bytes
-   for (int i = 0; i < 16; i++) {
+   for (int i = 15; i >= 0; i--) {
       // Go bit by bit
       for (int b = 0; b < 8; b++) {
-         ip[i*8+b] = this->get_bit(i*8+b,true);
+         ip[i*8+b] = this->get_bit((15-i)*8+b,true);
       }
    }
    return ip;
+}
+
+void IPaddr_cpp::set_bits_ipv6(std::bitset<128> ipv6)
+{
+   if ((new_object) && (data != NULL)) {
+      delete data;
+   } else {
+      new_object = true;
+   }
+
+   ip_addr_t *ip = new ip_addr_t;
+
+   // Create a 8b long bitset
+   std::bitset<8> tmp;
+
+   // Go after bytes
+   for (int i = 15; i >= 0; i--) {
+      for (int b = 0; b < 8; b++) {
+         tmp[b] = ipv6[(15-i)*8+b];
+      }
+      ip->bytes[i] = tmp.to_ulong();
+   }
+   data = ip;
+
+   return;
 }
 
 // Return IPv4 as bit vector
@@ -386,10 +507,10 @@ std::bitset<32> IPaddr_cpp::get_bits_ipv4()
    }
 
    // Divide into bytes that include IPv4
-   for (int i = 8; i < 12; i++) {
+   for (int i = 3; i >= 0; i--) {
       // Go bit by bit
       for (int b = 0; b < 8; b++) {
-         ip[(i-8)*8+b] = this->get_bit(i*8+b,true);
+         ip[i*8+b] = this->get_bit((3-i)*8+b,true);
       }
    }
 
