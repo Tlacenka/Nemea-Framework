@@ -304,10 +304,10 @@ std::vector<uint32_t> IPaddr_cpp::get_ipv6_int()
       return ipv6;
    }
 
-   ipv6[0] = data->ui32[0];
-   ipv6[1] = data->ui32[1];
-   ipv6[2] = data->ui32[2];
-   ipv6[3] = data->ui32[3];
+   ipv6[0] = ntohl(data->ui32[0]);
+   ipv6[1] = ntohl(data->ui32[1]);
+   ipv6[2] = ntohl(data->ui32[2]);
+   ipv6[3] = ntohl(data->ui32[3]);
 
    return ipv6;
 }
@@ -324,10 +324,10 @@ bool IPaddr_cpp::set_ipv6_int(std::vector<uint32_t> ip) {
    }
 
    ip_addr_t *new_ip = new ip_addr_t;
-   new_ip->ui32[0] = ip[0];
-   new_ip->ui32[1] = ip[1];
-   new_ip->ui32[2] = ip[2];
-   new_ip->ui32[3] = ip[3];
+   new_ip->ui32[0] = htonl(ip[0]);
+   new_ip->ui32[1] = htonl(ip[1]);
+   new_ip->ui32[2] = htonl(ip[2]);
+   new_ip->ui32[3] = htonl(ip[3]);
    data = new_ip;
 
    return true;
