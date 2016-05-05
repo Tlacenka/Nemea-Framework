@@ -50,6 +50,7 @@
 #include "ipaddr.h"
 #include <math.h>
 #include <string>
+#include <vector>
 #include <iostream>
 #include <arpa/inet.h>     // INET6_ADDRSTRLEN value
 
